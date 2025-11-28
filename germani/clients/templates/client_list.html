@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div x-data="{ open: false, detailOpen: false }">
+
+    <!-- Cabeçalho -->
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold">Clientes</h2>
+        <button class="btn-md btn-circle bg-gray-700 text-white flex justify-center items-center" @click="open = true">
+            <span class="material-symbols-outlined">add_2</span>
+        </button>
+    </div>
+
+    <!-- Tabela de clientes -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full bg-white rounded-lg shadow overflow-hidden">
+            <thead class="bg-gray-100 text-left">
+                <tr>
+                    <th class="px-4 py-2">Foto</th>
+                    <th class="px-4 py-2">Nome</th>
+                    <th class="px-4 py-2">Apelido</th>
+                    <th class="px-4 py-2">Telefone</th>
+                    <th class="px-4 py-2">Dívidas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr id="client-{{ client.client_id }}"
+                    class="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                    hx-get="/clients/{{ client.client_id }}/" hx-target="#client-detail-container" hx-trigger="click"
+                    hx-indicator="#loading" @click="detailOpen = true">
+                    <td class="px-4 py-2">
+                        {% if client.photo %}
+                        <img src="{{ client.photo.url }}" class="w-12 h-12 rounded-full object-cover">
+                        {% else %}
+                        <div class="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-gray-600">person</span>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="px-4 py-2 font-bold">{{ client.name }}</td>
+                    <td class="px-4 py-2">{{ client.nickname }}</td>
+                    <td class="px-4 py-2">{{ client.phone_number }}</td>
+                    <td class="px-4 py-2">R$ {{ client.client_debts }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="px-4 py-2 text-center text-gray-500">Nenhum cliente cadastrado.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- MODAL DETALHES (HTMX + Alpine) -->
+    <div x-show="detailOpen" x-transition.opacity
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+        @click.self="detailOpen = false">
+
+        <div id="client-detail-container" class="rounded-lg shadow-lg w-full max-w-sm max-h-[90vh] overflow-y-auto p-0">
+            <!-- HTMX carregará o modal compacto do cliente aqui -->
+        </div>
+    </div>
+
+    <!-- MODAL NOVO CLIENTE -->
+    <div x-show="open" x-transition.opacity
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="open = false">
+
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-md">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="flex justify-between items-center border-b px-4 py-2">
+                    <h5 class="text-lg font-semibold">Novo Cliente</h5>
+                    <button type="button" @click="open = false" class="btn btn-ghost">&times;</button>
+                </div>
+
+                <div class="p-4 space-y-4">
+                    {{ form.as_p }}
+                </div>
+
+                <div class="flex justify-end gap-2 border-t px-4 py-2">
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded">
+                        Salvar
+                    </button>
+                    <button type="button" @click="open = false" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<!-- Indicador HTMX -->
+<div id="loading" class="fixed top-4 right-4 hidden">
+    <div class="animate-spin border-4 border-gray-300 border-t-blue-600 rounded-full w-8 h-8"></div>
+</div>
+
+<script>
+// Atualizar lista de clientes quando dívida for quitada
+document.body.addEventListener('debtsCleared', function(event) {
+    // Recarregar a página para atualizar os dados
+    window.location.reload();
+});
+
+// Remover cliente da lista automaticamente quando deletado
+document.body.addEventListener('clientDeleted', function(event) {
+    const clientId = event.detail?.clientId;
+    if (clientId) {
+        // Encontrar e remover a linha da tabela
+        const clientRow = document.getElementById(`client-${clientId}`);
+        if (clientRow) {
+            // Adicionar animação de fade out antes de remover
+            clientRow.style.transition = 'opacity 0.3s ease-out';
+            clientRow.style.opacity = '0';
+            
+            setTimeout(() => {
+                clientRow.remove();
+                
+                // Verificar se não há mais clientes na tabela
+                const tbody = document.querySelector('tbody');
+                if (tbody && tbody.children.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-2 text-center text-gray-500">Nenhum cliente cadastrado.</td></tr>';
+                }
+            }, 300);
+        }
+    }
+});
+</script>
+
+{% endblock %}

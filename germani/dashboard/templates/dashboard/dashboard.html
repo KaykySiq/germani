@@ -1,0 +1,698 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block content %}
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<!-- Dados do gráfico -->
+{{ sales_by_day_labels|json_script:"sales-labels" }}
+{{ sales_by_day_values|json_script:"sales-values" }}
+
+<div class="max-w-7xl mx-auto mt-4 px-4">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800">Dashboard</h1>
+    
+    <!-- Cards de Métricas Principais -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Vendas do Dia -->
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Vendas Hoje</p>
+                    <p class="text-2xl font-bold text-green-600 mt-1">
+                        R$ {{ total_sales_today|floatformat:2|intcomma }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">{{ count_sales_today }} venda{{ count_sales_today|pluralize }}</p>
+                </div>
+                <div class="bg-green-100 rounded-full p-3">
+                    <span class="material-icons text-green-600 text-3xl">today</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Vendas do Mês -->
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Vendas do Mês</p>
+                    <p class="text-2xl font-bold text-blue-600 mt-1">
+                        R$ {{ total_sales_month|floatformat:2|intcomma }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">{{ count_sales_month }} venda{{ count_sales_month|pluralize }}</p>
+                </div>
+                <div class="bg-blue-100 rounded-full p-3">
+                    <span class="material-icons text-blue-600 text-3xl">calendar_month</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Vendas Abertas -->
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Vendas Abertas</p>
+                    <p class="text-2xl font-bold text-yellow-600 mt-1">
+                        {{ count_open_sales }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        R$ {{ total_open_sales|floatformat:2|intcomma }} pendente{{ count_open_sales|pluralize }}
+                    </p>
+                </div>
+                <div class="bg-yellow-100 rounded-full p-3">
+                    <span class="material-icons text-yellow-600 text-3xl">shopping_cart</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total de Dívidas -->
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Total em Dívidas</p>
+                    <p class="text-2xl font-bold text-red-600 mt-1">
+                        R$ {{ total_debts|floatformat:2|intcomma }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">{{ clients_with_debts }} cliente{{ clients_with_debts|pluralize }}</p>
+                </div>
+                <div class="bg-red-100 rounded-full p-3">
+                    <span class="material-icons text-red-600 text-3xl">account_balance_wallet</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cards Secundários -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <!-- Produtos em Falta -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Produtos em Falta</p>
+                    <p class="text-3xl font-bold {% if out_of_stock_count > 0 %}text-red-600{% else %}text-green-600{% endif %} mt-1">
+                        {{ out_of_stock_count }}
+                    </p>
+                </div>
+                <div class="{% if out_of_stock_count > 0 %}bg-red-100{% else %}bg-green-100{% endif %} rounded-full p-3">
+                    <span class="material-icons {% if out_of_stock_count > 0 %}text-red-600{% else %}text-green-600{% endif %} text-3xl">warning</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estoque Baixo -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Estoque Baixo</p>
+                    <p class="text-3xl font-bold {% if low_stock_count > 0 %}text-orange-600{% else %}text-green-600{% endif %} mt-1">
+                        {{ low_stock_count }}
+                    </p>
+                </div>
+                <div class="{% if low_stock_count > 0 %}bg-orange-100{% else %}bg-green-100{% endif %} rounded-full p-3">
+                    <span class="material-icons {% if low_stock_count > 0 %}text-orange-600{% else %}text-green-600{% endif %} text-3xl">inventory_2</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Total de Produtos -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-gray-600 text-sm font-medium">Total de Produtos</p>
+                    <p class="text-3xl font-bold text-gray-700 mt-1">
+                        {{ total_products }}
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">{{ total_clients }} cliente{{ total_clients|pluralize }} cadastrado{{ total_clients|pluralize }}</p>
+                </div>
+                <div class="bg-gray-100 rounded-full p-3">
+                    <span class="material-icons text-gray-600 text-3xl">inventory</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráficos e Informações -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Gráfico de Vendas dos Últimos 7 Dias -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Vendas dos Últimos 7 Dias</h3>
+            <div class="relative h-64">
+                <canvas id="salesChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Top 5 Produtos Mais Vendidos -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Top 5 Produtos (30 dias)</h3>
+            {% if top_products %}
+                <div class="space-y-3">
+                    {% for product_name, data in top_products %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-800">{{ product_name }}</p>
+                            <p class="text-sm text-gray-600">{{ data.quantity }} unidade{{ data.quantity|pluralize }} vendida{{ data.quantity|pluralize }}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-green-600">R$ {{ data.total|floatformat:2|intcomma }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-8">Nenhuma venda nos últimos 30 dias</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Vendas Recentes e Relatórios -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Vendas Recentes -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4">Vendas Recentes</h3>
+            {% if recent_sales %}
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    {% for sale in recent_sales %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <div class="flex-1">
+                            <p class="font-semibold text-gray-800">
+                                Venda #{{ sale.pk }}
+                            </p>
+                            <p class="text-sm text-gray-600">
+                                {{ sale.get_client_display }} • {{ sale.created_at|date:"d/m/Y H:i" }}
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-green-600">R$ {{ sale.total|floatformat:2|intcomma }}</p>
+                            <a href="{% url 'sale_detail' sale.pk %}" class="text-xs text-blue-600 hover:underline">Ver detalhes</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-8">Nenhuma venda recente</p>
+            {% endif %}
+        </div>
+        
+        <!-- Relatórios Financeiros -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4 text-gray-700">Relatórios Financeiros</h2>
+            
+            <div class="space-y-4">
+                <p class="text-gray-600 text-sm">
+                    Gere relatórios detalhados sobre vendas, produtos mais vendidos, participação por produto e muito mais.
+                </p>
+                
+                <form id="reportForm" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">
+                                Data Inicial
+                            </label>
+                            <input type="date" 
+                                   id="start_date" 
+                                   name="start_date" 
+                                   class="input input-bordered w-full"
+                                   value="{{ request.GET.start_date|default:'' }}">
+                        </div>
+                        
+                        <div>
+                            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">
+                                Data Final
+                            </label>
+                            <input type="date" 
+                                   id="end_date" 
+                                   name="end_date" 
+                                   class="input input-bordered w-full"
+                                   value="{{ request.GET.end_date|default:'' }}">
+                        </div>
+                    </div>
+                    
+                    <button type="button" 
+                            id="generateReportBtn"
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2">
+                        <span class="material-icons">assessment</span>
+                        <span>Gerar Relatório</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal do Relatório -->
+<div id="reportModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-[9999] flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[95vh] flex flex-col relative">
+        <!-- Header do Modal -->
+        <div class="bg-black text-white p-4 flex justify-between items-center rounded-t-lg flex-shrink-0 z-20 shadow-md">
+            <h2 class="text-2xl font-bold">Relatório Financeiro</h2>
+            <button id="closeModalBtn" class="text-white hover:text-gray-200 transition-colors">
+                <span class="material-icons text-3xl">close</span>
+            </button>
+        </div>
+        
+        <!-- Conteúdo do Modal com Scroll -->
+        <div id="reportContent" class="p-4 relative z-0 overflow-y-auto flex-1 min-h-0">
+            <div class="text-center">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-red-800"></div>
+                <p class="mt-4 text-gray-600">Carregando relatório...</p>
+            </div>
+        </div>
+        
+        <!-- Footer do Modal -->
+        <div class="bg-gray-100 p-4 flex justify-end gap-3 rounded-b-lg border-t flex-shrink-0 z-20 shadow-md">
+            <button id="exportPdfBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200 flex items-center gap-2">
+                <span class="material-icons">picture_as_pdf</span>
+                <span>Exportar Relatório</span>
+            </button>
+            <button id="closeModalBtn2" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg transition-all duration-200">
+                Fechar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let monthsChart = null;
+let productsPieChart = null;
+let productsBarChart = null;
+let salesChart = null;
+let currentStartDate = '';
+let currentEndDate = '';
+
+// Gráfico de Vendas dos Últimos 7 Dias
+document.addEventListener('DOMContentLoaded', function() {
+    const salesLabelsElement = document.getElementById('sales-labels');
+    const salesValuesElement = document.getElementById('sales-values');
+    
+    if (!salesLabelsElement || !salesValuesElement) return;
+    
+    const salesLabels = JSON.parse(salesLabelsElement.textContent);
+    const salesValues = JSON.parse(salesValuesElement.textContent);
+    
+    const ctx = document.getElementById('salesChart');
+    if (ctx && salesLabels && salesLabels.length > 0) {
+        salesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: salesLabels,
+                datasets: [{
+                    label: 'Vendas (R$)',
+                    data: salesValues,
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+
+document.getElementById('generateReportBtn').addEventListener('click', function() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    
+    if (!startDate || !endDate) {
+        alert('Por favor, selecione as datas inicial e final.');
+        return;
+    }
+    
+    currentStartDate = startDate;
+    currentEndDate = endDate;
+    
+    // Abrir modal
+    document.getElementById('reportModal').classList.remove('hidden');
+    
+    // Carregar dados
+    loadReportData(startDate, endDate);
+});
+
+document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+document.getElementById('closeModalBtn2').addEventListener('click', closeModal);
+
+document.getElementById('exportPdfBtn').addEventListener('click', function() {
+    if (!currentStartDate || !currentEndDate) return;
+    
+    const url = `{% url 'generate_report_pdf' %}?start_date=${currentStartDate}&end_date=${currentEndDate}`;
+    window.open(url, '_blank');
+});
+
+function closeModal() {
+    document.getElementById('reportModal').classList.add('hidden');
+    // Destruir gráficos ao fechar
+    if (monthsChart) {
+        monthsChart.destroy();
+        monthsChart = null;
+    }
+    if (productsPieChart) {
+        productsPieChart.destroy();
+        productsPieChart = null;
+    }
+    if (productsBarChart) {
+        productsBarChart.destroy();
+        productsBarChart = null;
+    }
+}
+
+function loadReportData(startDate, endDate) {
+    const url = `{% url 'generate_report_data' %}?start_date=${startDate}&end_date=${endDate}`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            renderReport(data);
+        })
+        .catch(error => {
+            console.error('Erro ao carregar relatório:', error);
+            document.getElementById('reportContent').innerHTML = `
+                <div class="text-center p-8">
+                    <p class="text-red-600 text-lg">Erro ao carregar o relatório. Tente novamente.</p>
+                </div>
+            `;
+        });
+}
+
+function renderReport(data) {
+    const content = document.getElementById('reportContent');
+    
+    // Verificar se há dados
+    if (!data.months.labels.length && !data.products.labels.length) {
+        content.innerHTML = `
+            <div class="text-center p-8">
+                <p class="text-gray-600 text-lg">Não há vendas no período selecionado.</p>
+                <p class="text-gray-500 mt-2">Período: ${data.start_date} - ${data.end_date}</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Formatar valores monetários
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(value);
+    };
+    
+    let html = `
+        <div class="space-y-4">
+            <!-- Período -->
+            <div class="text-center border-b pb-3">
+                <p class="text-gray-600 text-base">
+                    <strong>Período:</strong> ${data.start_date} - ${data.end_date}
+                </p>
+            </div>
+            
+            <!-- Estatísticas Gerais -->
+            <div class="bg-gray-50 rounded-lg p-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Estatísticas Gerais</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <p class="text-gray-600 text-sm">Total de Vendas</p>
+                        <p class="text-2xl font-bold text-green-600">${formatCurrency(data.stats.total_vendas)}</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <p class="text-gray-600 text-sm">Produtos Vendidos</p>
+                        <p class="text-2xl font-bold text-blue-600">${data.stats.total_produtos_vendidos} unidades</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow">
+                        <p class="text-gray-600 text-sm">Produtos em Falta</p>
+                        <p class="text-2xl font-bold text-red-600">${data.stats.out_of_stock}</p>
+                    </div>
+                </div>
+                ${data.stats.most_sold_product ? `
+                    <div class="mt-4 bg-white p-4 rounded-lg shadow">
+                        <p class="text-gray-600 text-sm">Produto Mais Vendido</p>
+                        <p class="text-lg font-semibold text-gray-800">${data.stats.most_sold_product.name} (${data.stats.most_sold_product.quantity} unidades)</p>
+                    </div>
+                ` : ''}
+            </div>
+            
+            <!-- Gráficos de Vendas por Mês -->
+            ${data.months.labels.length > 0 ? `
+                <div class="bg-white rounded-lg p-4 shadow">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">Vendas por Mês</h3>
+                    <div class="relative h-64 overflow-hidden">
+                        <canvas id="monthsChart" style="max-width: 100%; height: 100%;"></canvas>
+                    </div>
+                </div>
+            ` : ''}
+            
+            <!-- Gráficos de Produtos -->
+            ${data.products.labels.length > 0 ? `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <!-- Gráfico de Pizza -->
+                    <div class="bg-white rounded-lg p-4 shadow">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Participação por Produto (Pizza)</h3>
+                        <div class="relative h-64 overflow-hidden">
+                            <canvas id="productsPieChart" style="max-width: 100%; height: 100%;"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Gráfico de Barras -->
+                    <div class="bg-white rounded-lg p-4 shadow">
+                        <h3 class="text-lg font-bold text-gray-800 mb-3">Participação por Produto (Barras)</h3>
+                        <div class="relative h-64 overflow-hidden">
+                            <canvas id="productsBarChart" style="max-width: 100%; height: 100%;"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tabela de Produtos -->
+                <div class="bg-white rounded-lg p-4 shadow overflow-x-auto">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">Detalhes dos Produtos</h3>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-red-800 text-white">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase">Produto</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase">Quantidade</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase">Total Vendido</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium uppercase">Participação</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            ${data.products.percentages.map((product, index) => `
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${product.name}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.quantity} unidades</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatCurrency(product.total)}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.percentage.toFixed(1)}%</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    
+    content.innerHTML = html;
+    
+    // Renderizar gráficos após inserir HTML
+    setTimeout(() => {
+        if (data.months.labels.length > 0) {
+            renderMonthsChart(data.months);
+        }
+        if (data.products.labels.length > 0) {
+            renderProductsCharts(data.products);
+        }
+    }, 100);
+}
+
+function renderMonthsChart(monthsData) {
+    const ctx = document.getElementById('monthsChart');
+    if (!ctx) return;
+    
+    if (monthsChart) {
+        monthsChart.destroy();
+    }
+    
+    monthsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: monthsData.labels,
+            datasets: [{
+                label: 'Vendas (R$)',
+                data: monthsData.values,
+                backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                borderColor: 'rgba(37, 99, 235, 1)',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toLocaleString('pt-BR');
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderProductsCharts(productsData) {
+    const colors = ['#2563EB', '#F97316', '#10B981', '#06B6D4', '#8B5CF6', '#EC4899', '#F59E0B'];
+    
+    // Gráfico de Pizza
+    const pieCtx = document.getElementById('productsPieChart');
+    if (pieCtx) {
+        if (productsPieChart) {
+            productsPieChart.destroy();
+        }
+        
+        productsPieChart = new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: productsData.labels,
+                datasets: [{
+                    data: productsData.values,
+                    backgroundColor: colors.slice(0, productsData.labels.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        bottom: 20
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 12,
+                            padding: 8,
+                            font: {
+                                size: 11
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return label + ': R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2}) + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Gráfico de Barras
+    const barCtx = document.getElementById('productsBarChart');
+    if (barCtx) {
+        if (productsBarChart) {
+            productsBarChart.destroy();
+        }
+        
+        productsBarChart = new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: productsData.labels,
+                datasets: [{
+                    label: 'Total Vendido (R$)',
+                    data: productsData.values,
+                    backgroundColor: colors.slice(0, productsData.labels.length).map(c => c + '80'),
+                    borderColor: colors.slice(0, productsData.labels.length),
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Fechar modal ao clicar fora
+document.getElementById('reportModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Atualizar dashboard quando dívidas forem quitadas
+document.body.addEventListener('refreshDashboard', function() {
+    // Recarregar a página do dashboard para atualizar os dados
+    if (window.location.pathname.includes('dashboard')) {
+        window.location.reload();
+    }
+});
+</script>
+
+{% endblock %}
